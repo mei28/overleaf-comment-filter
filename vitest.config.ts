@@ -5,5 +5,7 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     environment: "node",
     env: { TZ: "UTC" },
+    // Process CSS so `?inline` imports return the real stylesheet.
+    css: true,
   },
 });
