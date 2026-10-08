@@ -1,6 +1,6 @@
 {
   "name": "overleaf-comment-filter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "List unresolved Overleaf comment threads sorted by created or last activity time.",
   "author": "mei28",
   "license": "MIT",

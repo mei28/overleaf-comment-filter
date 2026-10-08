@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Overleaf Comment Filter
 // @namespace    https://github.com/mei28/overleaf-comment-filter
-// @version      0.1.0
+// @version      0.2.0
 // @author       mei28
 // @description  List unresolved Overleaf comment threads sorted by created or last activity time.
 // @license      MIT
@@ -17,175 +17,6 @@
 
 (function() {
 	"use strict";
-	var pad = (value) => String(value).padStart(2, "0");
-	function formatDateTime(epochMs) {
-		const date = new Date(epochMs);
-		return `${`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-	}
-	function element(tag, className, ...children) {
-		const node = document.createElement(tag);
-		node.className = className;
-		node.append(...children);
-		return node;
-	}
-	function timeElement(epochMs) {
-		const time = document.createElement("time");
-		time.dateTime = new Date(epochMs).toISOString();
-		time.textContent = formatDateTime(epochMs);
-		return time;
-	}
-	function createPanel(root) {
-		const toggle = button("toggle", "Comments");
-		toggle.setAttribute("aria-expanded", "false");
-		const title = element("h2", "panel-title", "Unresolved comments");
-		const close = button("close", "×");
-		close.setAttribute("aria-label", "Close");
-		const sortKey = element("select", "sort-key", option("lastActivity", "Last activity"), option("created", "Created"));
-		sortKey.setAttribute("aria-label", "Sort by");
-		const order = button("order", "Newest first");
-		const reload = button("reload", "Reload");
-		const body = element("div", "body");
-		const panel = element("section", "panel", element("header", "panel-header", title, close), element("div", "controls", sortKey, order, reload), body);
-		panel.hidden = true;
-		root.append(toggle, panel);
-		return {
-			toggle,
-			panel,
-			title,
-			close,
-			sortKey,
-			order,
-			reload,
-			body
-		};
-	}
-	function button(className, label) {
-		const node = element("button", className, label);
-		node.type = "button";
-		return node;
-	}
-	function option(value, label) {
-		const node = element("option", "", label);
-		node.value = value;
-		return node;
-	}
-	var TIMESTAMP_OF = {
-		lastActivity: (entry) => entry.lastMessage.timestamp,
-		created: (entry) => entry.firstMessage.timestamp
-	};
-	function sortEntries(entries, key, order) {
-		const timestampOf = TIMESTAMP_OF[key];
-		const direction = order === "asc" ? 1 : -1;
-		return entries.toSorted((a, b) => direction * (timestampOf(a) - timestampOf(b)));
-	}
-	function commentDeepLink(projectId, docId, threadId) {
-		return `/project/${projectId}?${new URLSearchParams({
-			doc: docId,
-			comment: threadId
-		})}`;
-	}
-	function renderEntry(entry, projectId) {
-		const { firstMessage } = entry;
-		const link = element("a", "entry-link", ...quote(entry.highlightedText), element("div", "entry-meta", firstMessage.authorName, " · ", timeElement(firstMessage.timestamp)), element("p", "entry-content", firstMessage.content), ...activity(entry));
-		link.href = commentDeepLink(projectId, entry.docId, entry.threadId);
-		return element("li", "entry", link);
-	}
-	function quote(highlightedText) {
-		if (highlightedText === "") return [];
-		return [element("blockquote", "entry-quote", highlightedText)];
-	}
-	function activity({ replyCount, lastMessage }) {
-		if (replyCount === 0) return [];
-		return [element("div", "entry-activity", `${replyCount === 1 ? "1 reply" : `${replyCount} replies`} · last by ${lastMessage.authorName} · `, timeElement(lastMessage.timestamp))];
-	}
-	var ISSUES_URL = "https://github.com/mei28/overleaf-comment-filter/issues";
-	function renderBody(state, sort, projectId) {
-		switch (state.kind) {
-			case "loading": return [renderLoading()];
-			case "error": return [renderError(state.message)];
-			case "loaded": return renderList(state.list, sort, projectId);
-		}
-	}
-	function renderList({ entries, unanchoredThreadCount }, sort, projectId) {
-		return [renderEntries(entries, sort, projectId), ...unanchoredNote(unanchoredThreadCount)];
-	}
-	function renderEntries(entries, sort, projectId) {
-		if (entries.length === 0) return element("p", "status", "No unresolved comments in any file.");
-		return element("ol", "entries", ...sortEntries(entries, sort.key, sort.order).map((entry) => renderEntry(entry, projectId)));
-	}
-	function unanchoredNote(count) {
-		if (count === 0) return [];
-		return [element("p", "unanchored-note", count === 1 ? "1 unresolved thread has no position in any file and is not listed." : `${count} unresolved threads have no position in any file and are not listed.`)];
-	}
-	function renderLoading() {
-		const loading = element("p", "status", "Loading comments…");
-		loading.setAttribute("aria-busy", "true");
-		return loading;
-	}
-	function renderError(message) {
-		const report = element("a", "error-report", "Report an issue");
-		report.href = ISSUES_URL;
-		report.target = "_blank";
-		report.rel = "noopener";
-		const alert = element("div", "error", element("p", "error-title", "Could not load comments."), element("p", "error-message", message), report);
-		alert.setAttribute("role", "alert");
-		return alert;
-	}
-	function startApp({ root, projectId, load }) {
-		const ui = createPanel(root);
-		const sort = {
-			key: "lastActivity",
-			order: "desc"
-		};
-		let state = { kind: "loading" };
-		let isOpen = false;
-		const render = () => {
-			ui.body.replaceChildren(...renderBody(state, sort, projectId));
-			ui.title.textContent = state.kind === "loaded" ? `Unresolved comments (${state.list.entries.length})` : "Unresolved comments";
-		};
-		const refresh = async () => {
-			state = { kind: "loading" };
-			ui.reload.disabled = true;
-			render();
-			try {
-				state = {
-					kind: "loaded",
-					list: await load()
-				};
-			} catch (error) {
-				console.error("[overleaf-comment-filter]", error);
-				state = {
-					kind: "error",
-					message: messageOf(error)
-				};
-			}
-			ui.reload.disabled = false;
-			render();
-		};
-		const setOpen = (open) => {
-			isOpen = open;
-			ui.panel.hidden = !open;
-			ui.toggle.setAttribute("aria-expanded", String(open));
-			if (open) refresh();
-		};
-		ui.toggle.addEventListener("click", () => setOpen(!isOpen));
-		ui.close.addEventListener("click", () => setOpen(false));
-		ui.reload.addEventListener("click", () => {
-			refresh();
-		});
-		ui.sortKey.addEventListener("change", () => {
-			sort.key = ui.sortKey.value;
-			render();
-		});
-		ui.order.addEventListener("click", () => {
-			sort.order = sort.order === "desc" ? "asc" : "desc";
-			ui.order.textContent = sort.order === "desc" ? "Newest first" : "Oldest first";
-			render();
-		});
-	}
-	function messageOf(error) {
-		return error instanceof Error ? error.message : String(error);
-	}
 	function describeValue(value) {
 		if (value === void 0) return "missing";
 		if (value === null) return "null";
@@ -222,25 +53,6 @@
 		} catch (cause) {
 			throw new ShapeError(path, "JSON", "unparsable text", { cause });
 		}
-	}
-	function decodeRanges(json) {
-		return expectArray(json, "ranges").map((doc, index) => decodeDocRanges(doc, `ranges[${index}]`));
-	}
-	function decodeDocRanges(value, path) {
-		const doc = expectObject(value, path);
-		const ranges = expectObject(doc.ranges, `${path}.ranges`);
-		const comments = ranges.comments === void 0 ? [] : expectArray(ranges.comments, `${path}.ranges.comments`).map((comment, index) => decodeComment(comment, `${path}.ranges.comments[${index}]`));
-		return {
-			docId: expectString(doc.id, `${path}.id`),
-			comments
-		};
-	}
-	function decodeComment(value, path) {
-		const op = expectObject(expectObject(value, path).op, `${path}.op`);
-		return {
-			threadId: expectString(op.t, `${path}.op.t`),
-			highlightedText: expectString(op.c, `${path}.op.c`)
-		};
 	}
 	function decodeThreads(json) {
 		const root = expectObject(json, "threads");
@@ -297,88 +109,690 @@
 		if (!response.ok) throw new HttpError(path, response.status);
 		return parseJson(await response.text(), path);
 	}
-	async function loadProjectComments(projectId) {
-		const [threads, ranges] = await Promise.all([getJson(`/project/${projectId}/threads`), getJson(`/project/${projectId}/ranges`)]);
-		return {
-			threads: decodeThreads(threads),
-			ranges: decodeRanges(ranges)
-		};
+	async function loadProjectThreads(projectId) {
+		return decodeThreads(await getJson(`/project/${projectId}/threads`));
 	}
-	function authorName(user) {
-		if (user === void 0) return "Deleted user";
-		const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
-		if (name) return name;
-		if (user.email) return user.email.split("@")[0];
-		return "Unknown";
+	var OWN_MARK = "[data-ocf]";
+	function isOwnChange(record) {
+		const nodes = [...record.addedNodes, ...record.removedNodes];
+		return record.target.closest?.(OWN_MARK) != null || nodes.length > 0 && nodes.every((node) => node.matches?.(OWN_MARK));
 	}
-	function buildEntryList(threads, ranges) {
-		const entries = [];
-		for (const { docId, comments } of ranges) for (const { threadId, highlightedText } of comments) {
-			const thread = threads.get(threadId);
-			if (thread === void 0) continue;
-			if (thread.resolved) continue;
-			entries.push({
-				threadId,
-				docId,
-				highlightedText,
-				firstMessage: entryMessage(thread.messages[0]),
-				lastMessage: entryMessage(thread.messages.at(-1)),
-				replyCount: thread.messages.length - 1
+	function watchPage(doc, onChange) {
+		const observer = new MutationObserver((records) => {
+			if (records.every(isOwnChange)) return;
+			onChange();
+		});
+		observer.observe(doc.body, {
+			childList: true,
+			subtree: true
+		});
+		return () => observer.disconnect();
+	}
+	function errorMessage(error) {
+		return error instanceof Error ? error.message : String(error);
+	}
+	var SETTINGS = {
+		latestReply: {
+			key: "lastActivity",
+			order: "desc"
+		},
+		oldestReply: {
+			key: "lastActivity",
+			order: "asc"
+		},
+		newestComment: {
+			key: "created",
+			order: "desc"
+		},
+		oldestComment: {
+			key: "created",
+			order: "asc"
+		}
+	};
+	function presetSetting(preset) {
+		return SETTINGS[preset];
+	}
+	var TIME_PRESETS = [
+		"latestReply",
+		"oldestReply",
+		"newestComment",
+		"oldestComment"
+	];
+	var PRESET_LABELS = {
+		document: "Document order",
+		latestReply: "Latest reply first",
+		oldestReply: "Oldest reply first",
+		newestComment: "Newest comment first",
+		oldestComment: "Oldest comment first"
+	};
+	function isTimePreset(value) {
+		return TIME_PRESETS.includes(value);
+	}
+	var OverleafUiError = class extends Error {
+		constructor(message) {
+			super(message);
+			this.name = "OverleafUiError";
+		}
+	};
+	function requireElement(root, selector, purpose) {
+		const found = root.querySelector(selector);
+		if (found === null) throw new OverleafUiError(`${purpose}: ${selector} not found`);
+		return found;
+	}
+	var SELECTORS = {
+		currentFileRoot: "#review-panel-current-file",
+		currentFileEntries: "#review-panel-current-file > div",
+		reviewPanelFooter: ".review-panel-footer",
+		overviewRoot: "#review-panel-overview",
+		overviewFileEntries: ".review-panel-overview-file-entries",
+		reviewEntry: ".review-panel-entry",
+		commentEntry: ".review-panel-entry-comment",
+		reviewHeaderActions: ".review-panel-header .rail-panel-header-actions"
+	};
+	var HEADER_ICON_BUTTON_CLASSES = [
+		"d-inline-grid",
+		"rail-panel-header-button-subdued",
+		"icon-button-small",
+		"btn"
+	];
+	var MATERIAL_SYMBOL_CLASSES = ["material-symbols", "icon-small"];
+	var TIME_OF = {
+		lastActivity: (times) => times.lastActivityAt,
+		created: (times) => times.createdAt
+	};
+	function sortByTime(items, timesOf, { key, order }) {
+		const timeOf = (item) => TIME_OF[key](timesOf(item));
+		const direction = order === "asc" ? 1 : -1;
+		return items.toSorted((a, b) => direction * (timeOf(a) - timeOf(b)));
+	}
+	function orderEntries(container, setting, timesOf, readThreadId) {
+		const unknownThreadIds = [];
+		const timed = [];
+		const untimed = [];
+		const others = [];
+		for (const el of container.children) {
+			if (!el.matches(SELECTORS.commentEntry)) {
+				others.push(el);
+				continue;
+			}
+			const threadId = readThreadId(el);
+			const times = timesOf(threadId);
+			if (times === void 0) {
+				unknownThreadIds.push(threadId);
+				untimed.push(el);
+			} else timed.push({
+				el,
+				times
 			});
 		}
+		[
+			...sortByTime(timed, (entry) => entry.times, setting).map((entry) => entry.el),
+			...untimed,
+			...others
+		].forEach((el, index) => {
+			el.style.order = String(index);
+		});
+		return { unknownThreadIds };
+	}
+	function clearEntriesOrder(container) {
+		for (const el of container.children) el.style.removeProperty("order");
+	}
+	function orderOverviewEntries(overview, setting, timesOf, readThreadId) {
+		const unknownThreadIds = [];
+		for (const group of overview.querySelectorAll(SELECTORS.overviewFileEntries)) {
+			const result = orderEntries(group, setting, timesOf, readThreadId);
+			unknownThreadIds.push(...result.unknownThreadIds);
+		}
+		return { unknownThreadIds };
+	}
+	function clearOverviewOrder(overview) {
+		for (const group of overview.querySelectorAll(SELECTORS.overviewFileEntries)) clearEntriesOrder(group);
+	}
+	function createCurrentFileSorting({ doc, times, readThreadId, renderAll, openDocId, listHeight, reloadDelayMs, onStatus }) {
+		let preset = "document";
+		let root = null;
+		let renderedDocId;
+		let rendering = false;
+		let failed = false;
+		let observer;
+		let reloadTimer;
+		const order = async (tab) => {
+			if (!isTimePreset(preset)) return;
+			const docId = openDocId();
+			if (docId !== renderedDocId) {
+				if (rendering) return;
+				rendering = true;
+				onStatus({ kind: "loading" });
+				try {
+					await renderAll();
+				} finally {
+					rendering = false;
+				}
+				renderedDocId = docId;
+			}
+			const known = times.current() ?? await times.load();
+			if (!isTimePreset(preset)) return;
+			tab.dataset.ocfMode = "time";
+			tab.style.setProperty("--ocf-list-height", `${listHeight()}px`);
+			const { unknownThreadIds } = orderEntries(requireElement(tab, SELECTORS.currentFileEntries, "Current file tab"), presetSetting(preset), (threadId) => known.get(threadId), readThreadId);
+			onStatus({ kind: "idle" });
+			await times.refreshForUnknown(unknownThreadIds);
+		};
+		const fail = (tab, error) => {
+			failed = true;
+			console.error("[overleaf-comment-filter]", error);
+			onStatus({
+				kind: "error",
+				message: errorMessage(error)
+			});
+			restoreLayout(tab);
+		};
+		const apply = () => {
+			if (root === null) return;
+			const tab = root;
+			if (!isTimePreset(preset)) {
+				restoreLayout(tab);
+				onStatus({ kind: "idle" });
+				return;
+			}
+			order(tab).catch((error) => fail(tab, error));
+		};
+		times.subscribe(() => {
+			if (!failed) apply();
+		});
+		const observe = (tab) => {
+			observer?.disconnect();
+			observer = new MutationObserver((records) => {
+				const changes = records.filter((record) => !isOwnChange(record));
+				if (changes.length === 0 || !isTimePreset(preset) || failed) return;
+				apply();
+				if (changes.some(isInsideEntry$1)) {
+					clearTimeout(reloadTimer);
+					reloadTimer = setTimeout(() => times.refresh().catch((error) => fail(tab, error)), reloadDelayMs);
+				}
+			});
+			observer.observe(tab, {
+				childList: true,
+				subtree: true
+			});
+		};
 		return {
-			entries,
-			unanchoredThreadCount: countUnanchoredThreads(threads, ranges)
+			sync() {
+				const current = doc.querySelector(SELECTORS.currentFileRoot);
+				const tabChanged = current !== root;
+				root = current;
+				if (tabChanged) {
+					if (root === null) observer?.disconnect();
+					else observe(root);
+				}
+				if (tabChanged) {
+					apply();
+					return;
+				}
+				if (root === null || !isTimePreset(preset) || failed) return;
+				let docChanged;
+				try {
+					docChanged = openDocId() !== renderedDocId;
+				} catch (error) {
+					fail(root, error);
+					return;
+				}
+				if (docChanged) apply();
+			},
+			setPreset(next) {
+				preset = next;
+				failed = false;
+				apply();
+			},
+			resize() {
+				if (root?.dataset.ocfMode !== "time") return;
+				root.style.setProperty("--ocf-list-height", `${listHeight()}px`);
+			}
 		};
 	}
-	function countUnanchoredThreads(threads, ranges) {
-		const anchored = new Set(ranges.flatMap(({ comments }) => comments.map(({ threadId }) => threadId)));
-		let count = 0;
-		for (const [threadId, thread] of threads) if (!thread.resolved && !anchored.has(threadId)) count += 1;
-		return count;
+	function restoreLayout(tab) {
+		delete tab.dataset.ocfMode;
+		tab.style.removeProperty("--ocf-list-height");
+		for (const entry of tab.querySelectorAll(SELECTORS.reviewEntry)) entry.style.removeProperty("order");
 	}
-	function entryMessage(message) {
+	function isInsideEntry$1(record) {
+		return record.target.closest?.(SELECTORS.reviewEntry) != null;
+	}
+	var PURPOSE$1 = "Overleaf editor";
+	function store(win) {
+		const found = win.overleaf?.unstable?.store;
+		if (found === void 0) throw new OverleafUiError(`${PURPOSE$1}: window.overleaf.unstable.store not found`);
+		return found;
+	}
+	function readEditorScroller(win) {
+		const view = store(win).get("editor.view");
+		if (!(view?.scrollDOM instanceof HTMLElement)) throw new OverleafUiError(`${PURPOSE$1}: editor.view.scrollDOM not found`);
+		return view.scrollDOM;
+	}
+	function readOpenDocId(win) {
+		const docId = store(win).get("editor.open_doc_id");
+		if (typeof docId !== "string") throw new OverleafUiError(`${PURPOSE$1}: editor.open_doc_id not found`);
+		return docId;
+	}
+	function readEditorView(win) {
+		const view = store(win).get("editor.view");
+		for (const key of ["dom", "scrollDOM"]) if (!(view?.[key] instanceof HTMLElement)) throw new OverleafUiError(`${PURPOSE$1}: editor.view.${key} not found`);
+		for (const key of ["scrollSnapshot", "dispatch"]) if (typeof view?.[key] !== "function") throw new OverleafUiError(`${PURPOSE$1}: editor.view.${key} not found`);
+		return view;
+	}
+	function currentFileListHeight(doc, win) {
+		const tabBar = requireElement(doc, SELECTORS.reviewPanelFooter, "Review panel tab bar");
+		return readEditorScroller(win).clientHeight - tabBar.offsetHeight;
+	}
+	var STEP_RATIO = .8;
+	async function renderAllComments(editor, waitForPaint, onProgress) {
+		const snapshot = editor.scrollSnapshot();
+		const { scrollDOM } = editor;
+		const step = Math.max(1, Math.floor(scrollDOM.clientHeight * STEP_RATIO));
+		const stepsNeeded = () => Math.floor(scrollDOM.scrollHeight / step) + 1;
+		for (let index = 0; index < stepsNeeded(); index += 1) {
+			scrollDOM.scrollTop = index * step;
+			await waitForPaint();
+			onProgress(index + 1, stepsNeeded());
+		}
+		editor.dispatch({ effects: snapshot });
+		await waitForPaint();
+	}
+	function element(tag, className, ...children) {
+		const node = document.createElement(tag);
+		node.className = className;
+		node.append(...children);
+		return node;
+	}
+	function showScanOverlay(doc, area) {
+		const progress = element("p", "ocf-scan-progress", "Starting…");
+		const spinner = element("div", "spinner-border spinner-border-sm");
+		spinner.setAttribute("aria-hidden", "true");
+		const overlay = element("div", "ocf-scan-overlay", element("div", "ocf-scan-card", spinner, element("p", "ocf-scan-title", "Collecting comments to sort…"), element("p", "ocf-scan-hint", "Please don't scroll or type until this finishes. You will be returned to where you were."), progress));
+		overlay.dataset.ocf = "scan-overlay";
+		overlay.setAttribute("role", "status");
+		overlay.setAttribute("aria-live", "polite");
+		overlay.setAttribute("aria-busy", "true");
+		const rect = area.getBoundingClientRect();
+		Object.assign(overlay.style, {
+			position: "fixed",
+			top: `${rect.top}px`,
+			left: `${rect.left}px`,
+			width: `${rect.width}px`,
+			height: `${rect.height}px`
+		});
+		const holdKey = (event) => {
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		};
+		const focused = doc.activeElement;
+		focused?.blur();
+		doc.addEventListener("keydown", holdKey, true);
+		doc.body.append(overlay);
 		return {
-			authorName: authorName(message.user),
-			content: message.content,
-			timestamp: message.timestamp
+			update(done, total) {
+				progress.textContent = `Step ${done} of ${total}`;
+			},
+			remove() {
+				doc.removeEventListener("keydown", holdKey, true);
+				overlay.remove();
+				focused?.focus({ preventScroll: true });
+			}
 		};
 	}
-	var META_NAME = "ol-otMigrationStage";
-	function readOtMigrationStage(doc) {
-		const meta = doc.head.querySelector(`meta[name="${META_NAME}"]`);
-		if (meta === null || meta.content === "") return void 0;
-		return expectNumber(parseJson(meta.content, META_NAME), META_NAME);
+	async function scanCurrentFile(doc, win, waitForPaint) {
+		const view = readEditorView(win);
+		const overlay = showScanOverlay(doc, view.dom);
+		try {
+			await renderAllComments(view, waitForPaint, overlay.update);
+		} finally {
+			overlay.remove();
+		}
 	}
-	function assertSupportedOtMigrationStage(stage) {
-		if (stage !== 1) return;
-		throw new Error(`This project is at Overleaf history migration stage ${stage}. Its comment positions are not available from /ranges, so this script does not support it yet.`);
+	var LABEL = "Sort comments";
+	function ensureSortButton(doc, onClick) {
+		const actions = doc.querySelector(SELECTORS.reviewHeaderActions);
+		if (actions === null) return void 0;
+		const existing = actions.querySelector("[data-ocf='sort-button']");
+		if (existing !== null) return existing;
+		const button = element("button", [...HEADER_ICON_BUTTON_CLASSES, "ocf-sort-toggle"].join(" "), iconElement("sort"));
+		button.type = "button";
+		button.dataset.ocf = "sort-button";
+		button.setAttribute("aria-label", LABEL);
+		button.setAttribute("aria-pressed", "false");
+		button.title = LABEL;
+		button.addEventListener("click", () => onClick(button));
+		actions.prepend(button);
+		return button;
 	}
-	async function loadEntryList(projectId, doc) {
-		assertSupportedOtMigrationStage(readOtMigrationStage(doc));
-		const { threads, ranges } = await loadProjectComments(projectId);
-		return buildEntryList(threads, ranges);
+	function showSortState(button, preset, status) {
+		button.setAttribute("aria-pressed", String(preset !== "document"));
+		if (status.kind === "idle") delete button.dataset.ocfState;
+		else button.dataset.ocfState = status.kind;
+		button.title = status.kind === "error" ? `Sorting unavailable: ${status.message}` : LABEL;
+	}
+	function iconElement(name) {
+		const icon = element("span", MATERIAL_SYMBOL_CLASSES.join(" "), name);
+		icon.setAttribute("aria-hidden", "true");
+		return icon;
+	}
+	var GAP = 4;
+	var MARGIN = 8;
+	function popoverPlacement(anchor, width, viewport) {
+		const top = anchor.bottom + GAP;
+		return {
+			top,
+			left: Math.min(anchor.left, viewport.width - width - MARGIN),
+			maxHeight: viewport.height - top - MARGIN
+		};
+	}
+	var PRESETS = ["document", ...TIME_PRESETS];
+	var WIDTH = 220;
+	function createSortMenu(onSelect) {
+		const items = new Map(PRESETS.map((preset) => {
+			const item = element("button", "dropdown-item ocf-sort-item");
+			item.type = "button";
+			item.setAttribute("role", "menuitemradio");
+			item.addEventListener("click", () => {
+				close();
+				onSelect(preset);
+			});
+			return [preset, item];
+		}));
+		const statusLine = element("li", "ocf-sort-status");
+		statusLine.setAttribute("role", "status");
+		statusLine.hidden = true;
+		const menu = element("ul", "dropdown-menu show ocf-sort-menu", ...[...items.values()].map((item) => element("li", "", item)), statusLine);
+		menu.dataset.ocf = "sort-menu";
+		menu.setAttribute("role", "menu");
+		menu.hidden = true;
+		let anchor;
+		const onPointerDown = (event) => {
+			const target = event.target;
+			if (menu.contains(target) || anchor?.contains(target)) return;
+			close();
+		};
+		const onKeyDown = (event) => {
+			if (event.key === "Escape") close();
+		};
+		const open = (button) => {
+			anchor = button;
+			const placement = popoverPlacement(button.getBoundingClientRect(), WIDTH, {
+				width: window.innerWidth,
+				height: window.innerHeight
+			});
+			Object.assign(menu.style, {
+				position: "fixed",
+				top: `${placement.top}px`,
+				left: `${placement.left}px`,
+				width: `${WIDTH}px`
+			});
+			menu.hidden = false;
+			button.setAttribute("aria-expanded", "true");
+			document.addEventListener("pointerdown", onPointerDown, true);
+			document.addEventListener("keydown", onKeyDown);
+		};
+		function close() {
+			menu.hidden = true;
+			anchor?.setAttribute("aria-expanded", "false");
+			anchor = void 0;
+			document.removeEventListener("pointerdown", onPointerDown, true);
+			document.removeEventListener("keydown", onKeyDown);
+		}
+		return {
+			element: menu,
+			update(preset, status) {
+				statusLine.hidden = status.kind === "idle";
+				statusLine.textContent = statusText(status);
+				for (const [itemPreset, item] of items) {
+					const checked = itemPreset === preset;
+					item.setAttribute("aria-checked", String(checked));
+					item.replaceChildren(...checked ? [checkIcon()] : [], PRESET_LABELS[itemPreset]);
+				}
+			},
+			toggle(button) {
+				if (anchor === void 0) open(button);
+				else close();
+			},
+			closeIfDetached() {
+				if (anchor !== void 0 && !anchor.isConnected) close();
+			}
+		};
+	}
+	function checkIcon() {
+		const icon = element("span", [...MATERIAL_SYMBOL_CLASSES, "ocf-sort-check"].join(" "), "check");
+		icon.setAttribute("aria-hidden", "true");
+		return icon;
+	}
+	function statusText(status) {
+		switch (status.kind) {
+			case "idle": return "";
+			case "loading": return "Loading comments…";
+			case "error": return `Sorting unavailable: ${status.message}`;
+		}
+	}
+	var FIBER_KEY_PREFIX = "__reactFiber$";
+	var PURPOSE = "Overview comment entry";
+	var MAX_LEVELS = 5;
+	function readCommentThreadId(entry) {
+		let fiber = fiberOf(entry);
+		for (let level = 0; level < MAX_LEVELS && fiber !== null; level += 1) {
+			const thread = threadIdOf(fiber.memoizedProps);
+			if (thread !== void 0) return thread;
+			fiber = fiber.return;
+		}
+		throw new OverleafUiError(`${PURPOSE}: no comment props within ${MAX_LEVELS} React levels`);
+	}
+	function fiberOf(entry) {
+		const key = Object.keys(entry).find((name) => name.startsWith(FIBER_KEY_PREFIX));
+		if (key === void 0) throw new OverleafUiError(`${PURPOSE}: React fiber not found (${FIBER_KEY_PREFIX}*)`);
+		return entry[key] ?? null;
+	}
+	function threadIdOf(props) {
+		const threadId = (props?.comment)?.op?.t;
+		return typeof threadId === "string" ? threadId : void 0;
+	}
+	function createOverviewSorting({ doc, times, readThreadId, reloadDelayMs, onStatus }) {
+		let preset = "document";
+		let root = null;
+		let observer;
+		let reloadTimer;
+		let failed = false;
+		const fail = (error) => {
+			failed = true;
+			console.error("[overleaf-comment-filter]", error);
+			onStatus({
+				kind: "error",
+				message: errorMessage(error)
+			});
+			if (root !== null) clearOverviewOrder(root);
+		};
+		const apply = () => {
+			if (root === null) return;
+			if (!isTimePreset(preset)) {
+				clearOverviewOrder(root);
+				onStatus({ kind: "idle" });
+				return;
+			}
+			const known = times.current();
+			if (known === void 0) {
+				onStatus({ kind: "loading" });
+				times.load().catch(fail);
+				return;
+			}
+			let unknownThreadIds;
+			try {
+				({unknownThreadIds} = orderOverviewEntries(root, presetSetting(preset), (threadId) => known.get(threadId), readThreadId));
+			} catch (error) {
+				fail(error);
+				return;
+			}
+			onStatus({ kind: "idle" });
+			times.refreshForUnknown(unknownThreadIds).catch(fail);
+		};
+		times.subscribe(() => {
+			if (!failed) apply();
+		});
+		const observe = (overview) => {
+			observer?.disconnect();
+			observer = new MutationObserver((records) => {
+				const changes = records.filter((record) => !isOwnChange(record));
+				if (changes.length === 0 || failed) return;
+				apply();
+				if (isTimePreset(preset) && changes.some(isInsideEntry)) {
+					clearTimeout(reloadTimer);
+					reloadTimer = setTimeout(() => times.refresh().catch(fail), reloadDelayMs);
+				}
+			});
+			observer.observe(overview, {
+				childList: true,
+				subtree: true
+			});
+		};
+		return {
+			sync() {
+				const current = doc.querySelector(SELECTORS.overviewRoot);
+				if (current === root) return;
+				root = current;
+				if (root === null) {
+					observer?.disconnect();
+					return;
+				}
+				observe(root);
+				apply();
+			},
+			setPreset(next) {
+				preset = next;
+				failed = false;
+				apply();
+			}
+		};
+	}
+	function isInsideEntry(record) {
+		return record.target.closest?.(SELECTORS.reviewEntry) != null;
 	}
 	var EDITOR_PATH = /^\/project\/([0-9a-f]{24})$/;
 	function parseEditorProjectId(pathname) {
 		return EDITOR_PATH.exec(pathname)?.[1];
 	}
-	var panel_default = ":host{all:initial;color:#1f2328;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;line-height:1.4}.toggle,.panel{z-index:1000;position:fixed}.toggle{color:inherit;font:inherit;cursor:pointer;background:#fff;border:1px solid #c7ccd1;border-radius:999px;padding:6px 12px;bottom:16px;right:16px;box-shadow:0 2px 6px #0003}.panel{background:#fff;border:1px solid #c7ccd1;border-radius:8px;flex-direction:column;width:min(420px,40vw);display:flex;top:80px;bottom:64px;right:12px;box-shadow:0 4px 16px #00000040}.panel[hidden]{display:none}.panel-header,.controls{border-bottom:1px solid #e3e6e8;align-items:center;gap:6px;padding:8px 12px;display:flex}.panel-header{justify-content:space-between}.panel-title{margin:0;font-size:14px;font-weight:600}select,button{color:inherit;font:inherit;cursor:pointer;background:#f6f8fa;border:1px solid #c7ccd1;border-radius:4px;padding:2px 8px}button:disabled{cursor:progress;opacity:.6}.body{flex:1;padding:8px 12px;overflow-y:auto}.status,.unanchored-note,.entry-meta,.entry-activity{color:#59636e}.unanchored-note,.entry-meta,.entry-activity{font-size:12px}.error{background:#ffebe9;border:1px solid #d1242f;border-radius:4px;padding:8px}.error-title{margin:0 0 4px;font-weight:600}.error-message{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 4px;font-family:ui-monospace,monospace}.entries{margin:0;padding:0;list-style:none}.entry+.entry{border-top:1px solid #e3e6e8}.entry-link{color:inherit;padding:8px 4px;text-decoration:none;display:block}.entry-link:hover,.entry-link:focus-visible{background:#f6f8fa}.entry-quote,.entry-content{overflow-wrap:anywhere;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden}.entry-quote{color:#59636e;-webkit-line-clamp:2;border-left:3px solid #bf8700;margin:0 0 4px;padding-left:8px}.entry-content{white-space:pre-wrap;-webkit-line-clamp:3;margin:2px 0}";
-	var HOST_ID = "overleaf-comment-filter";
-	function mountShadowRoot() {
-		const host = document.createElement("div");
-		host.id = HOST_ID;
-		document.body.append(host);
-		const root = host.attachShadow({ mode: "open" });
-		const style = document.createElement("style");
-		style.textContent = panel_default;
-		root.append(style);
-		return root;
+	function combineStatuses(statuses) {
+		return statuses.find((status) => status.kind === "error") ?? statuses.find((status) => status.kind === "loading") ?? { kind: "idle" };
 	}
+	function threadTimes({ messages }) {
+		return {
+			createdAt: messages[0].timestamp,
+			lastActivityAt: messages.at(-1).timestamp
+		};
+	}
+	function timesByThread(threads) {
+		return new Map([...threads].map(([threadId, thread]) => [threadId, threadTimes(thread)]));
+	}
+	function createThreadTimesSource(loadThreads) {
+		let times;
+		let inFlight;
+		const listeners = [];
+		const requested = new Set();
+		const fetchTimes = () => {
+			inFlight ??= loadThreads().then((threads) => {
+				times = timesByThread(threads);
+				for (const listener of listeners) listener();
+				return times;
+			}).finally(() => {
+				inFlight = void 0;
+			});
+			return inFlight;
+		};
+		return {
+			current: () => times,
+			load: () => times !== void 0 ? Promise.resolve(times) : fetchTimes(),
+			refresh: fetchTimes,
+			async refreshForUnknown(threadIds) {
+				const fresh = threadIds.filter((id) => !requested.has(id));
+				if (fresh.length === 0) return void 0;
+				for (const id of fresh) requested.add(id);
+				return fetchTimes();
+			},
+			subscribe(listener) {
+				listeners.push(listener);
+			}
+		};
+	}
+	var styles_default = ".ocf-sort-toggle[aria-pressed=true]{color:var(--bg-accent-01)}.ocf-sort-toggle[data-ocf-state=loading]{opacity:.5}.ocf-sort-toggle[data-ocf-state=error]{color:var(--content-danger-themed)}.ocf-sort-menu{z-index:1000}.ocf-sort-item{align-items:center;gap:var(--spacing-02);padding-left:calc(var(--spacing-04) + 20px + var(--spacing-02));display:flex}.ocf-sort-item[aria-checked=true]{padding-left:var(--spacing-04)}.ocf-sort-status{padding:var(--spacing-02) var(--spacing-04) 0;color:var(--content-secondary);font-size:var(--font-size-01);overflow-wrap:anywhere}#review-panel-current-file[data-ocf-mode=time]{height:var(--ocf-list-height);padding:var(--spacing-02);display:block;position:sticky;top:0;overflow-y:auto}#review-panel-current-file[data-ocf-mode=time]>div{gap:var(--spacing-02);flex-direction:column;display:flex}#review-panel-current-file[data-ocf-mode=time] .review-panel-entry{width:100%;margin-left:0;visibility:visible!important;position:relative!important;top:auto!important}#review-panel-current-file[data-ocf-mode=time] .review-panel-more-comments-button-container{display:none}.ocf-scan-overlay{z-index:1000;background:color-mix(in srgb, var(--bg-primary-themed) 75%, transparent);cursor:progress;justify-content:center;align-items:center;display:flex}.ocf-scan-card{max-width:360px;padding:var(--spacing-06) var(--spacing-08);border:1px solid var(--border-divider-themed);border-radius:var(--border-radius-medium);background:var(--bg-secondary-themed);color:var(--content-primary-themed);text-align:center}.ocf-scan-title{margin:var(--spacing-04) 0 var(--spacing-02);font-size:var(--font-size-03);font-weight:600}.ocf-scan-hint,.ocf-scan-progress{margin:0 0 var(--spacing-02);color:var(--content-secondary-themed);font-size:var(--font-size-02)}";
+	var STYLE_ID = "ocf-styles";
+	function injectStyles(doc) {
+		if (doc.getElementById(STYLE_ID) !== null) return;
+		const style = doc.createElement("style");
+		style.id = STYLE_ID;
+		style.textContent = styles_default;
+		doc.head.append(style);
+	}
+	var SETTLE_MS = 80;
+	function waitForPaint() {
+		return new Promise((resolve) => {
+			requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, SETTLE_MS)));
+		});
+	}
+	var RELOAD_DELAY_MS = 1e3;
 	var projectId = parseEditorProjectId(location.pathname);
-	if (projectId !== void 0) startApp({
-		root: mountShadowRoot(),
-		projectId,
-		load: () => loadEntryList(projectId, document)
-	});
+	if (projectId !== void 0) start(projectId);
+	function start(projectId) {
+		injectStyles(document);
+		const times = createThreadTimesSource(() => loadProjectThreads(projectId));
+		let preset = "document";
+		const statuses = {
+			currentFile: { kind: "idle" },
+			overview: { kind: "idle" }
+		};
+		let button;
+		const menu = createSortMenu((next) => {
+			preset = next;
+			currentFile.setPreset(next);
+			overview.setPreset(next);
+			showState();
+		});
+		document.body.append(menu.element);
+		const showState = () => {
+			const status = combineStatuses(Object.values(statuses));
+			menu.update(preset, status);
+			if (button !== void 0) showSortState(button, preset, status);
+		};
+		const currentFile = createCurrentFileSorting({
+			doc: document,
+			times,
+			readThreadId: readCommentThreadId,
+			renderAll: () => scanCurrentFile(document, window, waitForPaint),
+			openDocId: () => readOpenDocId(window),
+			listHeight: () => currentFileListHeight(document, window),
+			reloadDelayMs: RELOAD_DELAY_MS,
+			onStatus: (status) => {
+				statuses.currentFile = status;
+				showState();
+			}
+		});
+		const overview = createOverviewSorting({
+			doc: document,
+			times,
+			readThreadId: readCommentThreadId,
+			reloadDelayMs: RELOAD_DELAY_MS,
+			onStatus: (status) => {
+				statuses.overview = status;
+				showState();
+			}
+		});
+		const sync = () => {
+			const current = ensureSortButton(document, (anchor) => menu.toggle(anchor));
+			if (current !== button) {
+				button = current;
+				showState();
+			}
+			menu.closeIfDetached();
+			currentFile.sync();
+			overview.sync();
+		};
+		window.addEventListener("resize", () => currentFile.resize());
+		window.addEventListener("editor:geometry-change", () => currentFile.resize());
+		showState();
+		watchPage(document, sync);
+		sync();
+	}
 })();
