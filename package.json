@@ -1,0 +1,31 @@
+{
+  "name": "overleaf-comment-filter",
+  "version": "0.1.0",
+  "description": "List unresolved Overleaf comment threads sorted by created or last activity time.",
+  "author": "mei28",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.8.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "vite build",
+    "build:dev": "vite build --outDir .dev-dist",
+    "watch": "vite build --watch --outDir .dev-dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "happy-dom": "20.14.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.3",
+    "vite-plugin-monkey": "8.1.1",
+    "vitest": "5.0.3"
+  }
+}
