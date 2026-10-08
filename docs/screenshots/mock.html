@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overleaf Comment Filter mock</title>
+<!--
+  Illustration only: a static imitation of Overleaf's review panel with
+  sample data, used to render the README screenshots (`just screenshots`).
+  ?state=menu | list | scan picks what is shown.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,1,0&display=block">
+<style>
+  :root {
+    --bg-rail: #1b222c;
+    --bg-panel: #212a36;
+    --bg-entry: #1b222c;
+    --bg-editor: #1e1e1e;
+    --border: #2f3a4c;
+    --text: #f4f5f6;
+    --text-secondary: #9da7b7;
+    --accent: #098842;
+    --accent-text: #1ec46a;
+    --menu-bg: #ffffff;
+    --menu-text: #1f2328;
+    --reply-border: #f5d880;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    width: 760px;
+    height: 520px;
+    overflow: hidden;
+    background: var(--bg-rail);
+    color: var(--text);
+    font: 14px/1.4 "Noto Sans", sans-serif;
+  }
+  .icon {
+    font-family: "Material Symbols Outlined", sans-serif;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .ide { display: flex; height: 100%; }
+  .rail {
+    width: 40px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+  }
+  .rail .icon { color: var(--text-secondary); padding: 6px; border-radius: 4px; }
+  .rail .icon.active { color: #d7f5e3; background: #0c5c30; }
+  .panel {
+    width: 300px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .header {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px 0 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-rail);
+  }
+  .header h4 { margin: 0; font-size: 15px; font-weight: 600; }
+  .actions { display: flex; gap: 4px; }
+  .actions .icon { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 4px; }
+  /* Same as styles.css: the button turns accent green while sorting. */
+  .actions .sort { color: var(--accent); }
+  .list { flex: 1; overflow: hidden; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .entry {
+    background: var(--bg-entry);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+  .user { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; }
+  .badge { width: 8px; height: 8px; border-radius: 2px; }
+  .time { color: var(--text-secondary); font-size: 12px; margin: 1px 0 4px; }
+  .body { font-size: 13px; }
+  .reply { border-left: 2px solid var(--reply-border); padding-left: 8px; margin-top: 8px; }
+  .footer {
+    height: 56px;
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--bg-rail);
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    border-top: 3px solid transparent;
+  }
+  .tab.active { color: var(--text); border-top-color: var(--accent); }
+  .editor { flex: 1; background: var(--bg-editor); padding: 14px 16px; font: 13px/1.7 ui-monospace, Menlo, monospace; color: #c9d1d9; }
+  .editor .ln { color: #6e7681; display: inline-block; width: 26px; }
+  .editor .kw { color: #7ee787; }
+  .editor .hl { background: rgba(245, 216, 128, 0.25); }
+  .menu {
+    position: absolute;
+    top: 38px;
+    left: 158px;
+    width: 220px;
+    margin: 0;
+    padding: 6px 0;
+    list-style: none;
+    background: var(--menu-bg);
+    color: var(--menu-text);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    z-index: 2;
+  }
+  .menu li { display: flex; align-items: center; gap: 6px; padding: 6px 14px 6px 40px; font-size: 14px; }
+  .menu li.checked { padding-left: 14px; background: #eef2f6; }
+  .menu li.checked .icon { width: 20px; }
+  .overlay {
+    position: absolute;
+    inset: 0 0 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(27, 34, 44, 0.78);
+    z-index: 3;
+  }
+  .card {
+    width: 340px;
+    padding: 22px 26px;
+    text-align: center;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .spinner {
+    width: 20px;
+    height: 20px;
+    margin: 0 auto;
+    border: 2px solid var(--text);
+    border-right-color: transparent;
+    border-radius: 50%;
+  }
+  .card .title { margin: 12px 0 6px; font-size: 16px; font-weight: 600; }
+  .card p { margin: 0 0 6px; color: var(--text-secondary); }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="ide">
+  <nav class="rail">
+    <span class="icon">description</span>
+    <span class="icon">search</span>
+    <span class="icon active">rate_review</span>
+    <span class="icon">forum</span>
+  </nav>
+  <section class="panel">
+    <div class="header">
+      <h4>Review</h4>
+      <div class="actions">
+        <span class="icon sort">sort</span>
+        <span class="icon">inbox</span>
+        <span class="icon">close</span>
+      </div>
+    </div>
+    <ul class="menu" data-show="menu">
+      <li>Document order</li>
+      <li class="checked"><span class="icon">check</span>Latest reply first</li>
+      <li>Oldest reply first</li>
+      <li>Newest comment first</li>
+      <li>Oldest comment first</li>
+    </ul>
+    <div class="list">
+      <div class="entry">
+        <div class="user"><span class="badge" style="background:#e4b33f"></span>Carol</div>
+        <div class="time">8 October, 4:12 pm</div>
+        <div class="body">Can we add the ablation from the appendix here?</div>
+        <div class="reply">
+          <div class="user"><span class="badge" style="background:#6ea8fe"></span>Alice</div>
+          <div class="time">9 October, 10:05 am</div>
+          <div class="body">Added it as Table 3.</div>
+        </div>
+      </div>
+      <div class="entry">
+        <div class="user"><span class="badge" style="background:#6ea8fe"></span>Alice</div>
+        <div class="time">7 October, 9:30 pm</div>
+        <div class="body">This claim needs a citation.</div>
+      </div>
+      <div class="entry">
+        <div class="user"><span class="badge" style="background:#c084fc"></span>Bob</div>
+        <div class="time">2 October, 11:48 am</div>
+        <div class="body">Typo: "sentense".</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="tab active"><span class="icon">description</span>Current file</div>
+      <div class="tab"><span class="icon">list</span>Overview</div>
+    </div>
+  </section>
+  <main class="editor">
+    <div><span class="ln">1</span><span class="kw">\section</span>{Introduction}</div>
+    <div><span class="ln">2</span>Swipe-based interfaces let users explore</div>
+    <div><span class="ln">3</span>generated images quickly. <span class="hl">This claim</span></div>
+    <div><span class="ln">4</span><span class="hl">holds for most users.</span></div>
+    <div><span class="ln">5</span></div>
+    <div><span class="ln">6</span><span class="kw">\section</span>{Method}</div>
+    <div><span class="ln">7</span>We train a generator on 30k samples</div>
+    <div><span class="ln">8</span>and compare three variants (<span class="hl">see the</span></div>
+    <div><span class="ln">9</span><span class="hl">ablation</span>). Each <span class="hl">sentense</span> is</div>
+    <div><span class="ln">10</span>rated by five participants.</div>
+  </main>
+  <div class="overlay" data-show="scan">
+    <div class="card">
+      <div class="spinner"></div>
+      <div class="title">Collecting comments to sort…</div>
+      <p>Please don't scroll or type until this finishes. You will be returned to where you were.</p>
+      <p>Step 3 of 7</p>
+    </div>
+  </div>
+</div>
+<script>
+  const state = new URLSearchParams(location.search).get("state") ?? "menu";
+  for (const el of document.querySelectorAll("[data-show]")) {
+    el.hidden = el.dataset.show !== state;
+  }
+</script>
+</body>
+</html>

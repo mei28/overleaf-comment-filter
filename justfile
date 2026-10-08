@@ -1,3 +1,5 @@
+chrome := env("CHROME", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+
 # List recipes
 default:
     @just --list
@@ -36,3 +38,13 @@ check: lint typecheck test build
 # Build the release userscript into dist/ (committed, served by @updateURL)
 dist:
     pnpm build
+
+# Render the README images from docs/screenshots/mock.html (sample data; needs
+# Chrome and network access for the web fonts; set CHROME to override the path)
+screenshots:
+    for state in menu list scan; do \
+      "{{chrome}}" --headless=new --disable-gpu --hide-scrollbars \
+        --window-size=760,520 --virtual-time-budget=5000 \
+        --screenshot="{{justfile_directory()}}/docs/images/$state.png" \
+        "file://{{justfile_directory()}}/docs/screenshots/mock.html?state=$state"; \
+    done
