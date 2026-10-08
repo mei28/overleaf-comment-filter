@@ -1,0 +1,114 @@
+/*
+ * The sort button and menu reuse Overleaf and Bootstrap classes, and the
+ * comments are Overleaf's own; these rules only add layout and states, using
+ * Overleaf's design tokens so both themes work.
+ */
+
+/* Header button: highlighted while a time order is active. */
+.ocf-sort-toggle[aria-pressed="true"] {
+  color: var(--bg-accent-01);
+}
+
+.ocf-sort-toggle[data-ocf-state="loading"] {
+  opacity: 0.5;
+}
+
+.ocf-sort-toggle[data-ocf-state="error"] {
+  color: var(--content-danger-themed);
+}
+
+/* Sort menu, fixed under the header button by the script. */
+.ocf-sort-menu {
+  z-index: 1000;
+}
+
+.ocf-sort-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-02);
+  /* Room for the check mark, so labels line up. */
+  padding-left: calc(var(--spacing-04) + 20px + var(--spacing-02));
+}
+
+.ocf-sort-item[aria-checked="true"] {
+  padding-left: var(--spacing-04);
+}
+
+.ocf-sort-status {
+  padding: var(--spacing-02) var(--spacing-04) 0;
+  color: var(--content-secondary);
+  font-size: var(--font-size-01);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Current file tab in a time order: a list pinned to the top of the panel
+ * instead of entries placed next to their lines. Overleaf positions entries
+ * with inline styles, hence !important.
+ */
+#review-panel-current-file[data-ocf-mode="time"] {
+  position: sticky;
+  top: 0;
+  display: block;
+  height: var(--ocf-list-height);
+  overflow-y: auto;
+  padding: var(--spacing-02);
+}
+
+#review-panel-current-file[data-ocf-mode="time"] > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-02);
+}
+
+#review-panel-current-file[data-ocf-mode="time"] .review-panel-entry {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Overleaf's inline style */
+  position: relative !important;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Overleaf's inline style */
+  top: auto !important;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Overleaf's inline style */
+  visibility: visible !important;
+  margin-left: 0;
+  width: 100%;
+}
+
+#review-panel-current-file[data-ocf-mode="time"]
+  .review-panel-more-comments-button-container {
+  display: none;
+}
+
+/*
+ * Overlay shown while the Current file scan scrolls the editor by itself.
+ * It covers the editor and its review panel and takes their clicks.
+ */
+.ocf-scan-overlay {
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-primary-themed) 75%, transparent);
+  cursor: progress;
+}
+
+.ocf-scan-card {
+  max-width: 360px;
+  padding: var(--spacing-06) var(--spacing-08);
+  border: 1px solid var(--border-divider-themed);
+  border-radius: var(--border-radius-medium);
+  background: var(--bg-secondary-themed);
+  color: var(--content-primary-themed);
+  text-align: center;
+}
+
+.ocf-scan-title {
+  margin: var(--spacing-04) 0 var(--spacing-02);
+  font-size: var(--font-size-03);
+  font-weight: 600;
+}
+
+.ocf-scan-hint,
+.ocf-scan-progress {
+  margin: 0 0 var(--spacing-02);
+  color: var(--content-secondary-themed);
+  font-size: var(--font-size-02);
+}

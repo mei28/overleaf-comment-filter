@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadProjectComments } from "../../src/api/load-project-comments";
-import rangesSample from "../fixtures/ranges.sample.json";
+import { loadProjectThreads } from "../../src/api/load-project-comments";
 import threadsSample from "../fixtures/threads.sample.json";
 
 const PID = "0123456789abcdef01234567";
@@ -18,31 +17,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("loadProjectComments", () => {
-  it("fetches and decodes the project's threads and ranges", async () => {
-    stubEndpoints({
-      [`/project/${PID}/threads`]: threadsSample,
-      [`/project/${PID}/ranges`]: rangesSample,
-    });
-    const { threads, ranges } = await loadProjectComments(PID);
+describe("loadProjectThreads", () => {
+  it("fetches and decodes the project's threads", async () => {
+    stubEndpoints({ [`/project/${PID}/threads`]: threadsSample });
+    const threads = await loadProjectThreads(PID);
     expect([...threads.keys()]).toEqual([
       "aaaaaaaaaaaaaaaaaaaa0001",
       "aaaaaaaaaaaaaaaaaaaa0002",
       "aaaaaaaaaaaaaaaaaaaa0003",
     ]);
-    expect(ranges.map((doc) => doc.docId)).toEqual([
-      "dddddddddddddddddddd0001",
-      "dddddddddddddddddddd0002",
-      "dddddddddddddddddddd0003",
-    ]);
   });
 
   it("passes a decode error through unchanged", async () => {
-    stubEndpoints({
-      [`/project/${PID}/threads`]: [],
-      [`/project/${PID}/ranges`]: rangesSample,
-    });
-    await expect(loadProjectComments(PID)).rejects.toThrowError(
+    stubEndpoints({ [`/project/${PID}/threads`]: [] });
+    await expect(loadProjectThreads(PID)).rejects.toThrowError(
       "threads: expected object, got array",
     );
   });

@@ -1,5 +1,3 @@
-import { formatDateTime } from "../format/format-date-time";
-
 // Strings are appended as text nodes, never parsed as HTML: comment text is
 // untrusted input.
 export function element<K extends keyof HTMLElementTagNameMap>(
@@ -11,11 +9,4 @@ export function element<K extends keyof HTMLElementTagNameMap>(
   node.className = className;
   node.append(...children);
   return node;
-}
-
-export function timeElement(epochMs: number): HTMLTimeElement {
-  const time = document.createElement("time");
-  time.dateTime = new Date(epochMs).toISOString();
-  time.textContent = formatDateTime(epochMs);
-  return time;
 }

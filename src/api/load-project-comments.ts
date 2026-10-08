@@ -1,19 +1,9 @@
-import { type ApiDocRanges, decodeRanges } from "./decode-ranges";
 import { type ApiThreads, decodeThreads } from "./decode-threads";
 import { getJson } from "./get-json";
 
-export type ProjectComments = {
-  threads: ApiThreads;
-  ranges: ApiDocRanges[];
-};
-
-// The same two endpoints Overleaf's review panel reads.
-export async function loadProjectComments(
+// The same request Overleaf's review panel makes for comment threads.
+export async function loadProjectThreads(
   projectId: string,
-): Promise<ProjectComments> {
-  const [threads, ranges] = await Promise.all([
-    getJson(`/project/${projectId}/threads`),
-    getJson(`/project/${projectId}/ranges`),
-  ]);
-  return { threads: decodeThreads(threads), ranges: decodeRanges(ranges) };
+): Promise<ApiThreads> {
+  return decodeThreads(await getJson(`/project/${projectId}/threads`));
 }
