@@ -1,0 +1,64 @@
+{
+  "aaaaaaaaaaaaaaaaaaaa0001": {
+    "messages": [
+      {
+        "id": "cccccccccccccccccccc0001",
+        "content": "Could you cite the original paper here?",
+        "timestamp": 1700000000000,
+        "user_id": "bbbbbbbbbbbbbbbbbbbb0001",
+        "user": {
+          "id": "bbbbbbbbbbbbbbbbbbbb0001",
+          "first_name": "Alice",
+          "last_name": "Example",
+          "email": "alice@example.com"
+        }
+      },
+      {
+        "id": "cccccccccccccccccccc0002",
+        "content": "Added the citation.",
+        "timestamp": 1700003600000,
+        "user_id": "bbbbbbbbbbbbbbbbbbbb0002",
+        "user": {
+          "id": "bbbbbbbbbbbbbbbbbbbb0002",
+          "first_name": "Bob",
+          "email": "bob@example.com"
+        }
+      }
+    ]
+  },
+  "aaaaaaaaaaaaaaaaaaaa0002": {
+    "messages": [
+      {
+        "id": "cccccccccccccccccccc0003",
+        "content": "Typo in this sentence.",
+        "timestamp": 1700100000000,
+        "user_id": "bbbbbbbbbbbbbbbbbbbb0003"
+      }
+    ]
+  },
+  "aaaaaaaaaaaaaaaaaaaa0003": {
+    "messages": [
+      {
+        "id": "cccccccccccccccccccc0004",
+        "content": "Fixed already.",
+        "timestamp": 1700200000000,
+        "user_id": "bbbbbbbbbbbbbbbbbbbb0001",
+        "user": {
+          "id": "bbbbbbbbbbbbbbbbbbbb0001",
+          "first_name": "Alice",
+          "last_name": "Example",
+          "email": "alice@example.com"
+        }
+      }
+    ],
+    "resolved": true,
+    "resolved_at": "2023-11-17T08:00:00.000Z",
+    "resolved_by_user_id": "bbbbbbbbbbbbbbbbbbbb0001",
+    "resolved_by_user": {
+      "id": "bbbbbbbbbbbbbbbbbbbb0001",
+      "first_name": "Alice",
+      "last_name": "Example",
+      "email": "alice@example.com"
+    }
+  }
+}
