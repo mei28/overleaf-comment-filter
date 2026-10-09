@@ -49,16 +49,20 @@ reason.
      **Details**, and turn on **Allow User Scripts**.
    - Older Chrome: turn on **Developer mode** at the top right of
      `chrome://extensions`.
-3. Open
-   [overleaf-comment-filter.user.js](https://raw.githubusercontent.com/mei28/overleaf-comment-filter/main/dist/overleaf-comment-filter.user.js)
-   and click **Install** on the page Tampermonkey shows.
+3. Install the script from one of these:
+   - [Greasy Fork](https://greasyfork.org/en/scripts/599335-overleaf-comment-filter):
+     click **Install this script**.
+   - GitHub: open
+     [overleaf-comment-filter.user.js](https://raw.githubusercontent.com/mei28/overleaf-comment-filter/main/dist/overleaf-comment-filter.user.js)
+     and click **Install** on the page Tampermonkey shows.
 4. Reload any Overleaf tab that was already open.
 
 ### Updates
 
-Tampermonkey checks for new versions and updates the script by itself. To
-update right away, open the Tampermonkey menu and choose **Check for
-userscript updates**.
+Tampermonkey checks for new versions and updates the script by itself, from
+wherever you installed it. Greasy Fork picks up each release from this
+repository. To update right away, open the Tampermonkey menu and choose
+**Check for userscript updates**.
 
 ## Use
 

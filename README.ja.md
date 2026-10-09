@@ -46,13 +46,16 @@ Overleaf は、Current file のコメントのうち、本文で表示したこ�
 2. Tampermonkey がユーザースクリプトを動かせるようにします。
    - Chrome 138 以降では、`chrome://extensions` を開き、Tampermonkey の「詳細」で「ユーザー スクリプトを許可」をオンにします。
    - それより前の Chrome では、`chrome://extensions` の右上にある「デベロッパー モード」をオンにします。
-3. [overleaf-comment-filter.user.js](https://raw.githubusercontent.com/mei28/overleaf-comment-filter/main/dist/overleaf-comment-filter.user.js) を開き、Tampermonkey が表示する画面でインストールのボタンを押します。
+3. 次のどちらかからスクリプトを入れます。
+   - [Greasy Fork](https://greasyfork.org/ja/scripts/599335-overleaf-comment-filter) で「スクリプトをインストール」を押します。
+   - GitHub の [overleaf-comment-filter.user.js](https://raw.githubusercontent.com/mei28/overleaf-comment-filter/main/dist/overleaf-comment-filter.user.js) を開き、Tampermonkey が表示する画面でインストールのボタンを押します。
 4. すでに開いていた Overleaf のタブを再読み込みします。
 
 ### 更新
 
 更新は自動です。
-Tampermonkey が定期的に新しい版を確認し、見つかれば入れ替えます。
+Tampermonkey が、スクリプトを入れた配布元で定期的に新しい版を確認し、見つかれば入れ替えます。
+Greasy Fork には、このリポジトリで公開した版が取り込まれます。
 すぐに更新したいときは、Tampermonkey のメニューから「Check for userscript updates」を選びます。
 (Tampermonkey の項目名は英語表示のものです。)
 
